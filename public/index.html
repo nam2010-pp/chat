@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Messenger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h2>Mini Messenger</h2>
+
+    <div id="auth">
+        <input type="text" id="username" placeholder="Tên đăng nhập">
+        <input type="password" id="password" placeholder="Mật khẩu">
+        <button onclick="register()">Đăng ký</button>
+        <button onclick="login()">Đăng nhập</button>
+        <p id="authMessage"></p>
+    </div>
+
+    <div id="chat" style="display:none;">
+        <h3>Xin chào, <span id="currentUser"></span></h3>
+        <div id="messages"></div>
+        <input type="text" id="message" placeholder="Nhập tin nhắn...">
+        <button onclick="sendMessage()">Gửi</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        let currentUser = "";
+
+        function register() {
+            fetch("/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: username.value, password: password.value })
+            }).then(res => res.json())
+            .then(data => authMessage.innerText = data.error || data.message);
+        }
+
+        function login() {
+            fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: username.value, password: password.value })
+            }).then(res => res.json())
+            .then(data => {
+                if (!data.error) {
+                    currentUser = username.value;
+                    auth.style.display = "none";
+                    chat.style.display = "block";
+                    currentUser.innerText = username.value;
+                    loadMessages();
+                } else {
+                    authMessage.innerText = data.error;
+                }
+            });
+        }
+
+        function loadMessages() {
+            fetch("/messages").then(res => res.json())
+            .then(messages => {
+                messages.forEach(msg => showMessage(msg));
+            });
+        }
+
+        function sendMessage() {
+            const text = message.value;
+            if (text.trim() !== "") {
+                const data = { user: currentUser, text };
+                socket.emit("sendMessage", data);
+                message.value = "";
+            }
+        }
+
+        socket.on("receiveMessage", (data) => {
+            showMessage(data);
+        });
+
+        function showMessage(data) {
+            const msgDiv = document.createElement("div");
+            msgDiv.innerText = `${data.user}: ${data.text}`;
+            messages.appendChild(msgDiv);
+        }
+    </script>
+</body>
+</html>
